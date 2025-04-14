@@ -107,8 +107,8 @@ router.post('/', (req, res) => {
     
     // Return the task from the transaction
     res.status(201).json(task);
-    res.status(201).json(newTask);
   } catch (err) {
+    console.error('Error in POST /tasks route:', err);
     console.error('Error creating task:', err);
     res.status(500).json({ error: err.message });
   }
@@ -120,107 +120,89 @@ router.put('/:id', (req, res) => {
   const taskId = req.params.id;
   const { text, priority, estimated_time, actual_time, completed, due_date } = req.body;
   
-  getUserId((err, userId) => {
-    if (err) {
-      return res.status(500).json({ error: err.message });
-    }
+  console.log('PUT /tasks/:id route called for task ID:', taskId);
+  console.log('Request body:', req.body);
+  
+  try {
+    const userId = getUserId();
+    console.log('Got user ID:', userId);
     
     // First, check if the task exists and belongs to the user
-    db.get('SELECT * FROM tasks WHERE id = ? AND user_id = ?', [taskId, userId], (err, task) => {
-      if (err) {
-        return res.status(500).json({ error: err.message });
+    const task = db.prepare('SELECT * FROM tasks WHERE id = ? AND user_id = ?').get(taskId, userId);
+    
+    if (!task) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
+    
+    // Prepare update fields
+    const updates = [];
+    const params = [];
+    
+    if (text !== undefined) {
+      updates.push('text = ?');
+      params.push(text);
+    }
+    
+    if (priority !== undefined) {
+      updates.push('priority = ?');
+      params.push(priority);
+    }
+    
+    if (estimated_time !== undefined) {
+      updates.push('estimated_time = ?');
+      params.push(estimated_time);
+    }
+    
+    if (actual_time !== undefined) {
+      updates.push('actual_time = ?');
+      params.push(actual_time);
+    }
+    
+    if (due_date !== undefined) {
+      updates.push('due_date = ?');
+      params.push(due_date);
+    }
+    
+    // Handle completion status change
+    const wasCompleted = task.completed === 1;
+    const isNowCompleted = completed === true;
+    
+    if (completed !== undefined) {
+      updates.push('completed = ?');
+      params.push(completed ? 1 : 0);
+      
+      if (!wasCompleted && isNowCompleted) {
+        updates.push('completed_at = ?');
+        params.push(moment().toISOString());
+      } else if (wasCompleted && !isNowCompleted) {
+        updates.push('completed_at = NULL');
       }
+    }
+    
+    // Add task ID and user ID to params
+    params.push(taskId);
+    params.push(userId);
+    
+    // Update the task
+    const updateStmt = db.prepare(`UPDATE tasks SET ${updates.join(', ')} WHERE id = ? AND user_id = ?`);
+    updateStmt.run(...params);
+    
+    // If completion status changed, update task history
+    if (completed !== undefined && wasCompleted !== isNowCompleted) {
+      const today = moment().format('YYYY-MM-DD');
+      const status = isNowCompleted ? 'completed' : 'in_progress';
       
-      if (!task) {
-        return res.status(404).json({ error: 'Task not found' });
-      }
-      
-      // Prepare update fields
-      const updates = [];
-      const params = [];
-      
-      if (text !== undefined) {
-        updates.push('text = ?');
-        params.push(text);
-      }
-      
-      if (priority !== undefined) {
-        updates.push('priority = ?');
-        params.push(priority);
-      }
-      
-      if (estimated_time !== undefined) {
-        updates.push('estimated_time = ?');
-        params.push(estimated_time);
-      }
-      
-      if (actual_time !== undefined) {
-        updates.push('actual_time = ?');
-        params.push(actual_time);
-      }
-      
-      if (due_date !== undefined) {
-        updates.push('due_date = ?');
-        params.push(due_date);
-      }
-      
-      // Handle completion status change
-      const wasCompleted = task.completed === 1;
-      const isNowCompleted = completed === true;
-      
-      if (completed !== undefined) {
-        updates.push('completed = ?');
-        params.push(completed ? 1 : 0);
-        
-        if (!wasCompleted && isNowCompleted) {
-          updates.push('completed_at = ?');
-          params.push(moment().toISOString());
-        } else if (wasCompleted && !isNowCompleted) {
-          updates.push('completed_at = NULL');
-        }
-      }
-      
-      // Add task ID and user ID to params
-      params.push(taskId);
-      params.push(userId);
-      
-      // Update the task
-      db.run(
-        `UPDATE tasks SET ${updates.join(', ')} WHERE id = ? AND user_id = ?`,
-        params,
-        function(err) {
-          if (err) {
-            return res.status(500).json({ error: err.message });
-          }
-          
-          // If completion status changed, update task history
-          if (completed !== undefined && wasCompleted !== isNowCompleted) {
-            const today = moment().format('YYYY-MM-DD');
-            const status = isNowCompleted ? 'completed' : 'in_progress';
-            
-            db.run(
-              `INSERT INTO task_history (task_id, user_id, date, status)
-               VALUES (?, ?, ?, ?)`,
-              [taskId, userId, today, status],
-              (err) => {
-                if (err) {
-                  console.error('Error updating task history:', err);
-                }
-              }
-            );
-          }
-          
-          // Return the updated task
-          db.get('SELECT * FROM tasks WHERE id = ?', [taskId], (err, updatedTask) => {
-            if (err) {
-              return res.status(500).json({ error: err.message });
-            }
-            res.json(updatedTask);
-          });
-        }
-      );
-    });
-  });
+      const historyStmt = db.prepare('INSERT INTO task_history (task_id, user_id, date, status) VALUES (?, ?, ?, ?)');
+      historyStmt.run(taskId, userId, today, status);
+    }
+    
+    // Return the updated task
+    const updatedTask = db.prepare('SELECT * FROM tasks WHERE id = ?').get(taskId);
+    res.json(updatedTask);
+  } catch (err) {
+    console.error('Error updating task:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // DELETE /api/tasks/:id
@@ -228,49 +210,37 @@ router.put('/:id', (req, res) => {
 router.delete('/:id', (req, res) => {
   const taskId = req.params.id;
   
-  getUserId((err, userId) => {
-    if (err) {
-      return res.status(500).json({ error: err.message });
-    }
+  try {
+    const userId = getUserId();
     
     // First, check if the task exists and belongs to the user
-    db.get('SELECT * FROM tasks WHERE id = ? AND user_id = ?', [taskId, userId], (err, task) => {
-      if (err) {
-        return res.status(500).json({ error: err.message });
-      }
-      
-      if (!task) {
-        return res.status(404).json({ error: 'Task not found' });
-      }
-      
+    const task = db.prepare('SELECT * FROM tasks WHERE id = ? AND user_id = ?').get(taskId, userId);
+    
+    if (!task) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
+    
+    // Use a transaction to ensure all operations succeed or fail together
+    db.transaction(() => {
       // Delete related records in task_history
-      db.run('DELETE FROM task_history WHERE task_id = ?', [taskId], (err) => {
-        if (err) {
-          return res.status(500).json({ error: err.message });
-        }
-        
-        // Delete related records in pomodoro_sessions
-        db.run('DELETE FROM pomodoro_sessions WHERE task_id = ?', [taskId], (err) => {
-          if (err) {
-            return res.status(500).json({ error: err.message });
-          }
-          
-          // Delete the task
-          db.run('DELETE FROM tasks WHERE id = ? AND user_id = ?', [taskId, userId], function(err) {
-            if (err) {
-              return res.status(500).json({ error: err.message });
-            }
-            
-            if (this.changes === 0) {
-              return res.status(404).json({ error: 'Task not found' });
-            }
-            
-            res.json({ message: 'Task deleted successfully' });
-          });
-        });
-      });
-    });
-  });
+      db.prepare('DELETE FROM task_history WHERE task_id = ?').run(taskId);
+      
+      // Delete related records in pomodoro_sessions
+      db.prepare('DELETE FROM pomodoro_sessions WHERE task_id = ?').run(taskId);
+      
+      // Delete the task
+      const result = db.prepare('DELETE FROM tasks WHERE id = ? AND user_id = ?').run(taskId, userId);
+      
+      if (result.changes === 0) {
+        throw new Error('Task not found');
+      }
+    })();
+    
+    res.json({ message: 'Task deleted successfully' });
+  } catch (err) {
+    console.error('Error deleting task:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // GET /api/tasks/stats
@@ -282,10 +252,8 @@ router.get('/stats', (req, res) => {
     return res.status(400).json({ error: 'Valid period (day, week, month) is required' });
   }
   
-  getUserId((err, userId) => {
-    if (err) {
-      return res.status(500).json({ error: err.message });
-    }
+  try {
+    const userId = getUserId();
     
     let startDate;
     const endDate = moment().format('YYYY-MM-DD');
@@ -302,52 +270,49 @@ router.get('/stats', (req, res) => {
         break;
     }
     
-    db.all(
-      `SELECT date, status, COUNT(*) as count
-       FROM task_history
-       WHERE user_id = ? AND date >= ? AND date <= ?
-       GROUP BY date, status
-       ORDER BY date ASC`,
-      [userId, startDate, endDate],
-      (err, stats) => {
-        if (err) {
-          return res.status(500).json({ error: err.message });
-        }
-        
-        // Process stats to create a more usable format
-        const result = {
-          dates: [],
-          completed: [],
-          failed: [],
-          inProgress: [],
-          completionRate: []
-        };
-        
-        // Get unique dates
-        const uniqueDates = [...new Set(stats.map(item => item.date))];
-        result.dates = uniqueDates;
-        
-        // For each date, calculate stats
-        uniqueDates.forEach(date => {
-          const dayStats = stats.filter(item => item.date === date);
-          
-          const completed = dayStats.find(item => item.status === 'completed')?.count || 0;
-          const failed = dayStats.find(item => item.status === 'failed')?.count || 0;
-          const inProgress = dayStats.find(item => item.status === 'in_progress')?.count || 0;
-          
-          const total = completed + failed + inProgress;
-          const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
-          
-          result.completed.push(completed);
-          result.failed.push(failed);
-          result.inProgress.push(inProgress);
-          result.completionRate.push(completionRate);
-        });
-        
-        res.json(result);
-      }
-    );
-  });
+    const stats = db.prepare(`
+      SELECT date, status, COUNT(*) as count
+      FROM task_history
+      WHERE user_id = ? AND date >= ? AND date <= ?
+      GROUP BY date, status
+      ORDER BY date ASC
+    `).all(userId, startDate, endDate);
+    
+    // Process stats to create a more usable format
+    const result = {
+      dates: [],
+      completed: [],
+      failed: [],
+      inProgress: [],
+      completionRate: []
+    };
+    
+    // Get unique dates
+    const uniqueDates = [...new Set(stats.map(item => item.date))];
+    result.dates = uniqueDates;
+    
+    // For each date, calculate stats
+    uniqueDates.forEach(date => {
+      const dayStats = stats.filter(item => item.date === date);
+      
+      const completed = dayStats.find(item => item.status === 'completed')?.count || 0;
+      const failed = dayStats.find(item => item.status === 'failed')?.count || 0;
+      const inProgress = dayStats.find(item => item.status === 'in_progress')?.count || 0;
+      
+      const total = completed + failed + inProgress;
+      const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
+      
+      result.completed.push(completed);
+      result.failed.push(failed);
+      result.inProgress.push(inProgress);
+      result.completionRate.push(completionRate);
+    });
+    
+    res.json(result);
+  } catch (err) {
+    console.error('Error getting task stats:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 module.exports = router;

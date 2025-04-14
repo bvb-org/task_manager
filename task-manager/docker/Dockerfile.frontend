@@ -1,0 +1,22 @@
+FROM node:16-alpine
+
+WORKDIR /app
+
+# Copy package.json and package-lock.json
+COPY package*.json ./
+
+# Modify package.json to use backend service name for proxy
+RUN sed -i 's|"proxy": "http://localhost:5000"|"proxy": "http://backend:5000"|g' package.json
+
+# Install dependencies
+RUN npm install
+
+# Copy source code
+COPY . .
+
+# Expose port
+EXPOSE 3001
+
+# Start the development server - bind to all interfaces
+ENV HOST=0.0.0.0
+CMD ["npm", "start"]

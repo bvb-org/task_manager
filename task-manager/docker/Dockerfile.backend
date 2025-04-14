@@ -1,0 +1,25 @@
+# Use a specific image with Node.js and SQLite3 pre-installed
+FROM nikolaik/python-nodejs:python3.9-nodejs16
+
+WORKDIR /app
+
+# Copy package.json and package-lock.json
+COPY package*.json ./
+
+# Install dependencies
+RUN apt-get update && \
+    apt-get install -y sqlite3 && \
+    rm -rf /var/lib/apt/lists/* && \
+    npm install
+
+# Copy source code
+COPY . .
+
+# Create data directory
+RUN mkdir -p data
+
+# Expose port
+EXPOSE 5000
+
+# Start the server
+CMD ["npm", "run", "dev"]

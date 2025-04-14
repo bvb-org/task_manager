@@ -92,15 +92,23 @@ router.post('/', (req, res) => {
       
       // Get the newly created task
       const task = db.prepare('SELECT * FROM tasks WHERE id = ?').get(taskId);
-      
       // Add to task history as 'in_progress'
       const today = moment().format('YYYY-MM-DD');
-      const insertHistory = db.prepare(`
-        INSERT INTO task_history (task_id, user_id, date, status)
-        VALUES (?, ?, ?, ?)
-      `);
       
-      insertHistory.run(task.id, userId, today, 'in_progress');
+      // Check if there's already an entry for this task today
+      const existingEntry = db.prepare(
+        'SELECT * FROM task_history WHERE task_id = ? AND user_id = ? AND date = ?'
+      ).get(task.id, userId, today);
+      
+      if (!existingEntry) {
+        // Only insert if no entry exists
+        const insertHistory = db.prepare(`
+          INSERT INTO task_history (task_id, user_id, date, status)
+          VALUES (?, ?, ?, ?)
+        `);
+        
+        insertHistory.run(task.id, userId, today, 'in_progress');
+      }
       
       return task;
     })();
@@ -192,8 +200,24 @@ router.put('/:id', (req, res) => {
       const today = moment().format('YYYY-MM-DD');
       const status = isNowCompleted ? 'completed' : 'in_progress';
       
-      const historyStmt = db.prepare('INSERT INTO task_history (task_id, user_id, date, status) VALUES (?, ?, ?, ?)');
-      historyStmt.run(taskId, userId, today, status);
+      // First, check if there's an existing entry for this task on this date
+      const existingEntry = db.prepare(
+        'SELECT * FROM task_history WHERE task_id = ? AND user_id = ? AND date = ?'
+      ).get(taskId, userId, today);
+      
+      if (existingEntry) {
+        // Update the existing entry instead of creating a new one
+        const updateHistoryStmt = db.prepare(
+          'UPDATE task_history SET status = ? WHERE task_id = ? AND user_id = ? AND date = ?'
+        );
+        updateHistoryStmt.run(status, taskId, userId, today);
+      } else {
+        // Create a new entry if none exists
+        const historyStmt = db.prepare(
+          'INSERT INTO task_history (task_id, user_id, date, status) VALUES (?, ?, ?, ?)'
+        );
+        historyStmt.run(taskId, userId, today, status);
+      }
     }
     
     // Return the updated task

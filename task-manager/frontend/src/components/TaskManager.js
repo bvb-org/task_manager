@@ -1,8 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { Clock, Check, CheckCircle, Circle, Play, Pause, RefreshCw, AlertCircle } from 'lucide-react';
-import { tasksApi, pomodoroApi } from '../services/api';
+import { tasksApi } from '../services/api';
+import { useTimer } from '../contexts/TimerContext';
 
 const TaskManager = () => {
+  // Get timer state and functions from context
+  const {
+    timeLeft,
+    isRunning,
+    isBreak,
+    completed,
+    activeTask,
+    setActiveTask,
+    formatTime,
+    toggleTimer,
+    resetTimer,
+    setTaskActive
+  } = useTimer();
   // Task priority levels
   const PRIORITY = {
     URGENT: 'urgent',
@@ -16,16 +30,11 @@ const TaskManager = () => {
   const [newTask, setNewTask] = useState("");
   const [newTaskPriority, setNewTaskPriority] = useState(PRIORITY.MEDIUM);
   const [newTaskTime, setNewTaskTime] = useState(30);
-  const [activeTask, setActiveTask] = useState(null);
+  // activeTask is now managed by the timer context
   const [filterCompleted, setFilterCompleted] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  
-  // Pomodoro States
-  const [timeLeft, setTimeLeft] = useState(25 * 60); // 25 minutes in seconds
-  const [isRunning, setIsRunning] = useState(false);
-  const [isBreak, setIsBreak] = useState(false);
-  const [completed, setCompleted] = useState(0);
+  // We don't need these states anymore as they're in the context
   const [currentPomodoroSession, setCurrentPomodoroSession] = useState(null);
 
   // Fetch tasks on component mount
@@ -48,47 +57,7 @@ const TaskManager = () => {
     }
   };
 
-  // Time formatting helper
-  const formatTime = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  // Start/pause timer
-  const toggleTimer = async () => {
-    if (!isRunning) {
-      // Starting timer
-      try {
-        const sessionType = isBreak ? 'break' : 'focus';
-        const duration = isBreak ? 5 * 60 : 25 * 60; // 5 or 25 minutes in seconds
-        
-        const sessionData = {
-          task_id: activeTask ? activeTask.id : null,
-          duration,
-          type: sessionType
-        };
-        
-        const response = await pomodoroApi.startSession(sessionData);
-        setCurrentPomodoroSession(response);
-        setIsRunning(true);
-      } catch (err) {
-        console.error('Failed to start pomodoro session:', err);
-        // Still allow the timer to run even if API call fails
-        setIsRunning(true);
-      }
-    } else {
-      // Pausing timer
-      setIsRunning(false);
-    }
-  };
-
-  // Reset timer
-  const resetTimer = () => {
-    setIsRunning(false);
-    setTimeLeft(isBreak ? 5 * 60 : 25 * 60);
-    setCurrentPomodoroSession(null);
-  };
+  // These functions are now provided by the timer context
 
   // Handle adding a new task
   const addTask = async () => {
@@ -139,11 +108,7 @@ const TaskManager = () => {
     }
   };
 
-  // Set active task for the pomodoro
-  const setTaskActive = (task) => {
-    setActiveTask(task);
-    resetTimer();
-  };
+  // This function is now provided by the timer context
 
   // Delete a task
   const deleteTask = async (id) => {
@@ -192,51 +157,14 @@ const TaskManager = () => {
     ? Math.round((completedCount / totalCount) * 100) 
     : 0;
 
-  // Timer effect
+  // Timer effect is now in the TimerContext
+  
+  // Add an effect to handle task completion when timer completes
   useEffect(() => {
-    let interval = null;
-    
-    if (isRunning) {
-      interval = setInterval(() => {
-        setTimeLeft(prevTime => {
-          if (prevTime <= 1) {
-            clearInterval(interval);
-            setIsRunning(false);
-            
-            // Handle session completion
-            if (currentPomodoroSession) {
-              pomodoroApi.completeSession(currentPomodoroSession.id)
-                .then(() => {
-                  console.log('Pomodoro session completed');
-                })
-                .catch(err => {
-                  console.error('Failed to complete pomodoro session:', err);
-                });
-            }
-            
-            if (!isBreak) {
-              setCompleted(prev => prev + 1);
-              // If there's an active task, mark it as completed
-              if (activeTask) {
-                toggleComplete(activeTask.id);
-                setActiveTask(null);
-              }
-            }
-            
-            // Toggle between session and break
-            setIsBreak(prev => !prev);
-            setCurrentPomodoroSession(null);
-            return isBreak ? 25 * 60 : 5 * 60;
-          }
-          return prevTime - 1;
-        });
-      }, 1000);
-    } else if (!isRunning && interval) {
-      clearInterval(interval);
+    if (activeTask && !isRunning && timeLeft === 0 && !isBreak) {
+      toggleComplete(activeTask.id);
     }
-    
-    return () => clearInterval(interval);
-  }, [isRunning, isBreak, activeTask, currentPomodoroSession]);
+  }, [activeTask, isRunning, timeLeft, isBreak]);
 
   // Helper for priority color
   const getPriorityColor = (priority) => {

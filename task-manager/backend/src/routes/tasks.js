@@ -3,24 +3,22 @@ const router = express.Router();
 const db = require('../db');
 const moment = require('moment');
 
-// Helper function to get user ID (for now, just returns the default user)
-const getUserId = () => {
-  try {
-    const user = db.prepare('SELECT id FROM users WHERE username = ?').get('default');
-    if (!user) {
-      throw new Error('User not found');
-    }
-    return user.id;
-  } catch (err) {
-    throw err;
+// Middleware to check if user is authenticated
+const requireAuth = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Authentication required' });
   }
+  next();
 };
+
+// Apply authentication middleware to all routes
+router.use(requireAuth);
 
 // GET /api/tasks
 // Returns all tasks for the current day
 router.get('/', (req, res) => {
   try {
-    const userId = getUserId();
+    const userId = req.user.id;
     
     const today = moment().format('YYYY-MM-DD');
     const startOfDay = moment(today).startOf('day').toISOString();
@@ -50,7 +48,7 @@ router.get('/history', (req, res) => {
   }
   
   try {
-    const userId = getUserId();
+    const userId = req.user.id;
     
     const history = db.prepare(`
       SELECT th.*, t.text, t.priority, t.estimated_time, t.actual_time
@@ -77,7 +75,7 @@ router.post('/', (req, res) => {
   }
   
   try {
-    const userId = getUserId();
+    const userId = req.user.id;
     
     // Use a transaction to ensure both operations succeed or fail together
     const task = db.transaction(() => {
@@ -132,7 +130,7 @@ router.put('/:id', (req, res) => {
   console.log('Request body:', req.body);
   
   try {
-    const userId = getUserId();
+    const userId = req.user.id;
     console.log('Got user ID:', userId);
     
     // First, check if the task exists and belongs to the user
@@ -235,7 +233,7 @@ router.delete('/:id', (req, res) => {
   const taskId = req.params.id;
   
   try {
-    const userId = getUserId();
+    const userId = req.user.id;
     
     // First, check if the task exists and belongs to the user
     const task = db.prepare('SELECT * FROM tasks WHERE id = ? AND user_id = ?').get(taskId, userId);
@@ -277,7 +275,7 @@ router.get('/stats', (req, res) => {
   }
   
   try {
-    const userId = getUserId();
+    const userId = req.user.id;
     
     let startDate;
     const endDate = moment().format('YYYY-MM-DD');

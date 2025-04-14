@@ -1,4 +1,4 @@
-FROM node:16-alpine
+FROM node:16-alpine as build
 
 WORKDIR /app
 
@@ -14,9 +14,22 @@ RUN npm install
 # Copy source code
 COPY . .
 
+# Build the app
+RUN npm run build
+
+# Production environment
+FROM node:16-alpine
+
+WORKDIR /app
+
+# Install serve to run the application
+RUN npm install -g serve
+
+# Copy built app from the build stage
+COPY --from=build /app/build ./build
+
 # Expose port
 EXPOSE 3001
 
-# Start the development server - bind to all interfaces
-ENV HOST=0.0.0.0
-CMD ["npm", "start"]
+# Start the server
+CMD ["serve", "-s", "build", "-l", "3001"]

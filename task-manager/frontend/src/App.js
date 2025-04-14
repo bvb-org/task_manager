@@ -1,12 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, Navigate, useLocation } from 'react-router-dom';
-import { Home, BarChart2, Clock, Calendar, Settings, Menu, X } from 'lucide-react';
+import { Home, BarChart2, Clock, Calendar, Settings, Menu, X, LogOut } from 'lucide-react';
 import TaskManager from './components/TaskManager';
 import TaskHistory from './components/TaskHistory';
 import PomodoroHistory from './components/PomodoroHistory';
 import Dashboard from './components/Dashboard';
+import Login from './components/auth/Login';
+import Register from './components/auth/Register';
+import ProtectedRoute from './components/auth/ProtectedRoute';
 import { userApi } from './services/api';
 import { TimerProvider } from './contexts/TimerContext';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 
 // Navigation component that uses useLocation hook
 function Navigation({ mobileMenuOpen, closeMobileMenu }) {
@@ -99,7 +103,8 @@ function Navigation({ mobileMenuOpen, closeMobileMenu }) {
 }
 
 // Main App Layout component
-function AppLayout({ user }) {
+function AppLayout() {
+  const { currentUser, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Toggle mobile menu
@@ -122,7 +127,27 @@ function AppLayout({ user }) {
               <div className="flex-shrink-0 flex items-center">
                 <h1 className="text-xl font-bold text-gray-800">Task Manager</h1>
               </div>
+              <div className="ml-6 flex items-center">
+                {currentUser && (
+                  <span className="text-sm text-gray-600">
+                    Welcome, {currentUser.username}
+                  </span>
+                )}
+              </div>
             </div>
+            
+            {/* Logout button */}
+            {currentUser && (
+              <div className="hidden sm:ml-6 sm:flex sm:items-center">
+                <button
+                  onClick={logout}
+                  className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-gray-700 bg-gray-100 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  <LogOut className="h-4 w-4 mr-1" />
+                  Logout
+                </button>
+              </div>
+            )}
             
             {/* Mobile menu button */}
             <div className="flex items-center sm:hidden">
@@ -149,10 +174,14 @@ function AppLayout({ user }) {
       <main className="flex-1 py-6">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <Routes>
-            <Route path="/" element={<TaskManager />} />
-            <Route path="/history" element={<TaskHistory />} />
-            <Route path="/pomodoro" element={<PomodoroHistory />} />
-            <Route path="/dashboard" element={<Dashboard />} />
+            <Route element={<ProtectedRoute />}>
+              <Route path="/" element={<TaskManager />} />
+              <Route path="/history" element={<TaskHistory />} />
+              <Route path="/pomodoro" element={<PomodoroHistory />} />
+              <Route path="/dashboard" element={<Dashboard />} />
+            </Route>
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </div>
@@ -171,45 +200,7 @@ function AppLayout({ user }) {
 }
 
 function App() {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
-  useEffect(() => {
-    // Fetch the current user (or create default user if none exists)
-    const fetchUser = async () => {
-      try {
-        setLoading(true);
-        const userData = await userApi.getCurrentUser();
-        setUser(userData);
-      } catch (err) {
-        console.error('Error fetching user:', err);
-        // Try to create a default user
-        try {
-          const newUser = await userApi.createUser('default');
-          setUser(newUser);
-        } catch (createErr) {
-          setError('Failed to initialize user. Please try again later.');
-          console.error('Error creating user:', createErr);
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchUser();
-  }, []);
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-100">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading Task Manager...</p>
-        </div>
-      </div>
-    );
-  }
 
   if (error) {
     return (
@@ -222,7 +213,7 @@ function App() {
           </div>
           <h2 className="text-xl font-bold text-center mb-2">Error</h2>
           <p className="text-gray-600 text-center">{error}</p>
-          <button 
+          <button
             onClick={() => window.location.reload()}
             className="mt-4 w-full bg-blue-500 text-white py-2 rounded-md hover:bg-blue-600 transition-colors"
           >
@@ -235,9 +226,11 @@ function App() {
 
   return (
     <Router>
-      <TimerProvider>
-        <AppLayout user={user} />
-      </TimerProvider>
+      <AuthProvider>
+        <TimerProvider>
+          <AppLayout />
+        </TimerProvider>
+      </AuthProvider>
     </Router>
   );
 }

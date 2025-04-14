@@ -1,144 +1,158 @@
-# Task Manager
+# Task Manager Application
 
-A personal task manager application with Pomodoro timer, task history tracking, and productivity analytics.
+A full-stack task management application with Pomodoro timer, task history, and dashboard features.
 
 ## Features
 
-- **Task Priority Management**: Organize tasks by urgency/importance
-- **Pomodoro Timer**: Built-in 25/5 minute work/break cycle
-- **Task History**: Track completed and failed tasks over time
-- **Time Tracking**: Compare estimated vs. actual time spent on tasks
-- **Persistence**: Save all data to a SQLite database
-- **Containerization**: Packaged as a Docker container for easy deployment
-- **CI/CD**: GitHub Actions workflow for automatic deployment
+- User authentication (register, login)
+- Task management (create, update, delete tasks)
+- Pomodoro timer for focused work sessions
+- Task history tracking
+- Dashboard with productivity statistics
+- Responsive design for mobile and desktop
 
 ## Technology Stack
 
-- **Frontend**: React.js with Tailwind CSS
-- **Backend**: Node.js with Express
+- **Frontend**: React, TailwindCSS, Recharts
+- **Backend**: Node.js, Express
 - **Database**: SQLite
+- **Authentication**: JWT (JSON Web Tokens)
 - **Containerization**: Docker
-- **CI/CD**: GitHub Actions
 
-## Getting Started
+## Deployment Instructions
 
 ### Prerequisites
 
-- Node.js (v14 or higher)
-- npm or yarn
-- Docker (optional, for containerized deployment)
+- Docker and Docker Compose installed on your server
+- A domain name (optional, for public access)
 
-### Local Development Setup
+### Local Deployment
 
 1. Clone the repository:
-   ```bash
+   ```
    git clone <repository-url>
    cd task-manager
    ```
 
-2. Set up the backend:
-   ```bash
-   cd backend
-   npm install
-   npm run dev
+2. Configure environment variables:
+   - Create or modify `.env` files in both `backend` and `frontend` directories
+   - Set a strong JWT_SECRET in `backend/.env`
+
+3. Build and start the containers:
    ```
-
-3. Set up the frontend (in a new terminal):
-   ```bash
-   cd frontend
-   npm install
-   npm start
-   ```
-
-4. Open your browser and navigate to `http://localhost:3000`
-
-### Docker Deployment
-
-1. Build and run using Docker Compose:
-   ```bash
    cd docker
    docker-compose up -d
    ```
 
-2. Access the application at `http://localhost:3000`
+4. Access the application:
+   - Local: http://localhost (port 80)
+   - The backend API is available at http://localhost:5000/api
 
-## Project Structure
+### Production Deployment
+
+For a production deployment with SSL:
+
+1. Uncomment the Nginx service in `docker-compose.yml`
+
+2. Create an SSL certificate:
+   ```
+   mkdir -p docker/nginx/ssl
+   ```
+   
+   You can use Let's Encrypt to generate free SSL certificates:
+   ```
+   certbot certonly --standalone -d yourdomain.com
+   ```
+   
+   Copy the certificates to the nginx/ssl directory:
+   ```
+   cp /etc/letsencrypt/live/yourdomain.com/fullchain.pem docker/nginx/ssl/
+   cp /etc/letsencrypt/live/yourdomain.com/privkey.pem docker/nginx/ssl/
+   ```
+
+3. Create an Nginx configuration file:
+   ```
+   mkdir -p docker/nginx
+   touch docker/nginx/nginx.conf
+   ```
+   
+   Add the following configuration:
+   ```
+   events {
+     worker_connections 1024;
+   }
+   
+   http {
+     server {
+       listen 80;
+       server_name yourdomain.com;
+       return 301 https://$host$request_uri;
+     }
+     
+     server {
+       listen 443 ssl;
+       server_name yourdomain.com;
+       
+       ssl_certificate /etc/nginx/ssl/fullchain.pem;
+       ssl_certificate_key /etc/nginx/ssl/privkey.pem;
+       
+       location / {
+         proxy_pass http://frontend:3001;
+         proxy_set_header Host $host;
+         proxy_set_header X-Real-IP $remote_addr;
+       }
+       
+       location /api {
+         proxy_pass http://backend:5000;
+         proxy_set_header Host $host;
+         proxy_set_header X-Real-IP $remote_addr;
+       }
+     }
+   }
+   ```
+
+4. Build and start the containers:
+   ```
+   cd docker
+   docker-compose up -d
+   ```
+
+5. Access the application:
+   - Production: https://yourdomain.com
+
+## Default User
+
+The application comes with a default user:
+- Email: bogdan.bujor08@gmail.com
+- Password: merlin97
+
+## Backup and Restore
+
+The SQLite database is stored in the `data` directory, which is mounted as a volume in the Docker container. To backup the database:
 
 ```
-task-manager/
-├── docker/
-│   ├── Dockerfile
-│   └── docker-compose.yml
-├── backend/
-│   ├── src/
-│   │   ├── controllers/
-│   │   ├── models/
-│   │   ├── routes/
-│   │   ├── services/
-│   │   ├── app.js
-│   │   └── db.js
-│   ├── package.json
-│   └── .env
-├── frontend/
-│   ├── public/
-│   ├── src/
-│   │   ├── components/
-│   │   ├── contexts/
-│   │   ├── hooks/
-│   │   ├── pages/
-│   │   ├── services/
-│   │   ├── App.js
-│   │   └── index.js
-│   ├── package.json
-│   └── .env
-├── .github/
-│   └── workflows/
-│       └── deploy.yml
-└── README.md
+cp task-manager/data/taskmanager.db /path/to/backup/
 ```
 
-## API Endpoints
+To restore from a backup:
 
-### User Management
-- `GET /api/user` - Returns the current user info
-- `POST /api/user` - Creates a new user or returns existing user
+```
+cp /path/to/backup/taskmanager.db task-manager/data/
+```
 
-### Task Management
-- `GET /api/tasks` - Returns all tasks for the current day
-- `GET /api/tasks/history` - Returns task history for a date range
-- `POST /api/tasks` - Creates a new task
-- `PUT /api/tasks/:id` - Updates a task (including marking as complete)
-- `DELETE /api/tasks/:id` - Deletes a task
-- `GET /api/tasks/stats` - Returns completion statistics for the specified period
+## Troubleshooting
 
-### Pomodoro Management
-- `POST /api/pomodoro/start` - Starts a new pomodoro session
-- `PUT /api/pomodoro/:id/complete` - Marks a pomodoro session as complete
-- `GET /api/pomodoro/history` - Gets pomodoro history for a specific day
+- If you encounter issues with the containers, check the logs:
+  ```
+  docker-compose logs -f
+  ```
 
-## Deployment to Raspberry Pi
+- To restart the services:
+  ```
+  docker-compose restart
+  ```
 
-### Prerequisites
-- Raspberry Pi with Docker installed
-- GitHub repository with the following secrets configured:
-  - `PI_HOST`: IP address of your Raspberry Pi
-  - `PI_USERNAME`: SSH username
-  - `PI_SSH_KEY`: Private SSH key content
-
-### Deployment Process
-1. Push changes to the main branch
-2. GitHub Actions will automatically:
-   - Build the Docker image
-   - Push it to GitHub Container Registry
-   - Deploy it to your Raspberry Pi
-
-## Development Best Practices
-
-1. **Task Persistence**: Tasks are autosaved when modified to prevent data loss
-2. **Error Handling**: Robust error handling for API calls
-3. **Responsive Design**: UI works well on mobile devices
-4. **Performance**: Optimized for Raspberry Pi's limited resources
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
+- To completely rebuild the containers:
+  ```
+  docker-compose down
+  docker-compose up -d --build

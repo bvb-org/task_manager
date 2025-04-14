@@ -3,18 +3,16 @@ const router = express.Router();
 const db = require('../db');
 const moment = require('moment');
 
-// Helper function to get user ID (for now, just returns the default user)
-const getUserId = () => {
-  try {
-    const user = db.prepare('SELECT id FROM users WHERE username = ?').get('default');
-    if (!user) {
-      throw new Error('User not found');
-    }
-    return user.id;
-  } catch (err) {
-    throw err;
+// Middleware to check if user is authenticated
+const requireAuth = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Authentication required' });
   }
+  next();
 };
+
+// Apply authentication middleware to all routes
+router.use(requireAuth);
 
 // POST /api/pomodoro/start
 // Starts a new pomodoro session
@@ -26,7 +24,7 @@ router.post('/start', (req, res) => {
   }
   
   try {
-    const userId = getUserId();
+    const userId = req.user.id;
     
     // If task_id is provided, verify it exists and belongs to the user
     if (task_id) {
@@ -60,7 +58,7 @@ router.put('/:id/complete', (req, res) => {
   const sessionId = req.params.id;
   
   try {
-    const userId = getUserId();
+    const userId = req.user.id;
     
     // First, check if the session exists and belongs to the user
     const session = db.prepare('SELECT * FROM pomodoro_sessions WHERE id = ? AND user_id = ?').get(sessionId, userId);
@@ -108,7 +106,7 @@ router.get('/history', (req, res) => {
   }
   
   try {
-    const userId = getUserId();
+    const userId = req.user.id;
     
     const startOfDay = moment(date).startOf('day').toISOString();
     const endOfDay = moment(date).endOf('day').toISOString();

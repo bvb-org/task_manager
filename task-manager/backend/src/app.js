@@ -51,12 +51,25 @@ app.use((req, res, next) => {
   const originalSend = res.send;
   const originalJson = res.json;
   
-  // Override res.send to log response data
+  // Override res.send to log response data and catch HTML responses for API requests
   res.send = function(body) {
     console.log(`Response for ${req.method} ${req.url} - Status: ${res.statusCode}`);
-    if (typeof body === 'string' && body.startsWith('<!DOCTYPE html>')) {
-      console.warn('WARNING: HTML response detected for API request');
+    
+    // Check if this is an API request and the response is HTML
+    if (req.path.startsWith('/api/') && typeof body === 'string' && body.includes('<!DOCTYPE html>')) {
+      console.error('CRITICAL: HTML response detected for API request:', req.path);
+      
+      // Convert HTML response to JSON error response
+      res.setHeader('Content-Type', 'application/json');
+      return originalJson.call(this, {
+        error: 'Server configuration error',
+        message: 'The server returned HTML instead of JSON',
+        path: req.path,
+        method: req.method,
+        timestamp: new Date().toISOString()
+      });
     }
+    
     return originalSend.apply(res, arguments);
   };
   
@@ -102,28 +115,54 @@ app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', message: 'Server is running' });
 });
 
+// Health check endpoint with explicit content type
+app.get('/health', (req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  console.log('Health check request received');
+  res.status(200).json({ status: 'ok', message: 'Server is running' });
+});
+
 // API Routes - explicitly set Content-Type for all API responses
 app.use('/api/tasks', (req, res, next) => {
   res.setHeader('Content-Type', 'application/json');
   next();
 }, require('./routes/tasks'));
 
-app.use('/api/user', (req, res, next) => {
+// Handle user routes with special care for registration
+const userRoutes = require('./routes/users');
+
+// Special middleware for registration endpoint
+app.use('/api/user/register', (req, res, next) => {
+  // Explicitly set content type for registration response
   res.setHeader('Content-Type', 'application/json');
+  
+  // Log the registration request for debugging
+  console.log('Registration request received:', {
+    method: req.method,
+    path: req.path,
+    body: req.body
+  });
+  
+  // Continue to the router
   next();
-}, require('./routes/users'));
+});
+
+// Special middleware for user-related endpoints
+app.use('/api/user', (req, res, next) => {
+  // Explicitly set content type for all user API responses
+  res.setHeader('Content-Type', 'application/json');
+  
+  // Log the request for debugging
+  console.log(`User API request: ${req.method} ${req.path}`);
+  
+  // Continue to the router
+  next();
+}, userRoutes);
 
 app.use('/api/pomodoro', (req, res, next) => {
   res.setHeader('Content-Type', 'application/json');
   next();
 }, require('./routes/pomodoro'));
-
-// Add a specific route for user registration to ensure proper handling
-app.post('/api/user/register', (req, res, next) => {
-  res.setHeader('Content-Type', 'application/json');
-  console.log('Registration request received:', req.body);
-  next();
-});
 
 // Serve static frontend in production
 if (process.env.NODE_ENV === 'production') {

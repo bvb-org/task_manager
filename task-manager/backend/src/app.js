@@ -17,7 +17,7 @@ app.use(express.json());
 
 // Configure CORS middleware - Use a single CORS solution
 app.use(cors({
-  origin: '*', // Allow any origin
+  origin: ['https://pomodoro.gris.ninja', 'https://pomodoro-backend.gris.ninja', 'http://localhost:3000', 'http://localhost:3001', 'http://localhost:3004'],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Origin'],
   credentials: true,
@@ -109,17 +109,16 @@ const authenticateToken = (req, res, next) => {
 // Apply authentication middleware to all requests
 app.use(authenticateToken);
 
-// Health check endpoint
-app.get('/health', (req, res) => {
-  console.log('Health check request received');
-  res.status(200).json({ status: 'ok', message: 'Server is running' });
-});
-
 // Health check endpoint with explicit content type
 app.get('/health', (req, res) => {
   res.setHeader('Content-Type', 'application/json');
   console.log('Health check request received');
-  res.status(200).json({ status: 'ok', message: 'Server is running' });
+  res.status(200).json({
+    status: 'ok',
+    message: 'Server is running',
+    environment: process.env.NODE_ENV || 'development',
+    timestamp: new Date().toISOString()
+  });
 });
 
 // API Routes - explicitly set Content-Type for all API responses

@@ -4,8 +4,8 @@ import axios from 'axios';
 const getBaseURL = () => {
   // Check if we're running on the Cloudflare tunnel domain
   if (window.location.hostname === 'pomodoro.gris.ninja') {
-    // When running on Cloudflare tunnel, use a relative URL to inherit the HTTPS protocol
-    return '/api';
+    // When running on Cloudflare tunnel, use the backend subdomain
+    return 'https://pomodoro-backend.gris.ninja/api';
   } else if (window.location.hostname === 'localhost') {
     // Local development
     return 'http://localhost:5000/api';
@@ -42,21 +42,33 @@ api.interceptors.request.use(config => {
 // Test connection to backend
 export const testBackendConnection = async () => {
   try {
-    const healthUrl = baseURL.replace('/api', '/health');
+    // Construct the health URL based on the current environment
+    let healthUrl;
+    if (window.location.hostname === 'pomodoro.gris.ninja') {
+      healthUrl = 'https://pomodoro-backend.gris.ninja/health';
+    } else if (window.location.hostname === 'localhost') {
+      healthUrl = 'http://localhost:5000/health';
+    } else {
+      healthUrl = 'http://task-manager-backend:5000/health';
+    }
+    
     console.log('Testing connection to backend at:', healthUrl);
     const response = await axios.get(healthUrl, {
       headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
         'Origin': window.location.origin
       }
     });
     console.log('Backend connection test response:', response.data);
-    return { success: true, message: 'Connected to backend successfully' };
+    return { success: true, message: 'Connected to backend successfully', data: response.data };
   } catch (error) {
     console.error('Backend connection test failed:', error);
     return {
       success: false,
       message: 'Failed to connect to backend',
-      error: error.message
+      error: error.message,
+      url: error.config?.url
     };
   }
 };
@@ -167,9 +179,25 @@ api.interceptors.response.use(
     }
     
     // Check if the response is HTML instead of JSON
-    if (typeof response.data === 'string' && response.data.includes('<!doctype html>')) {
+    if (typeof response.data === 'string' &&
+        (response.data.includes('<!doctype html>') ||
+         response.data.includes('<!DOCTYPE html>') ||
+         response.data.includes('<html'))) {
       console.error('Received HTML response instead of JSON:', response.config.url);
-      throw new Error('Invalid response format: received HTML instead of JSON');
+      console.error('HTML content preview:', response.data.substring(0, 200) + '...');
+      
+      // Try to extract any error message from the HTML
+      let errorMessage = 'Invalid response format: received HTML instead of JSON';
+      try {
+        const titleMatch = response.data.match(/<title>(.*?)<\/title>/i);
+        if (titleMatch && titleMatch[1]) {
+          errorMessage += ` - Page title: ${titleMatch[1]}`;
+        }
+      } catch (e) {
+        // Ignore extraction errors
+      }
+      
+      throw new Error(errorMessage);
     }
     
     return response.data;
@@ -196,20 +224,43 @@ api.interceptors.response.use(
       console.error('API Error Setup:', error.message);
     }
     
-    // Handle specific error types
+    // Handle specific error types with more detailed information
     if (error.code === 'ERR_NETWORK') {
-      console.error('Network error - cannot connect to server');
+      console.error('Network error - cannot connect to server', {
+        url: error.config?.url,
+        baseURL: baseURL,
+        hostname: window.location.hostname
+      });
       return Promise.reject({
         status: 0,
-        error: 'Cannot connect to server. Please check if the backend is running.'
+        error: `Cannot connect to server at ${error.config?.url}. Please check if the backend is running and accessible.`,
+        code: error.code
       });
     }
     
     if (error.code === 'ERR_BAD_RESPONSE') {
-      console.error('Bad response from server');
+      console.error('Bad response from server', {
+        url: error.config?.url,
+        status: error.response?.status,
+        statusText: error.response?.statusText
+      });
+      return Promise.reject({
+        status: error.response?.status || 0,
+        error: `Received invalid response from server (${error.response?.status || 'unknown status'}). Please try again.`,
+        code: error.code
+      });
+    }
+    
+    // Handle CORS errors
+    if (error.message && error.message.includes('Network Error')) {
+      console.error('Possible CORS error', {
+        url: error.config?.url,
+        origin: window.location.origin
+      });
       return Promise.reject({
         status: 0,
-        error: 'Received invalid response from server. Please try again.'
+        error: `CORS error when connecting to ${error.config?.url}. The server may not allow requests from ${window.location.origin}.`,
+        code: 'CORS_ERROR'
       });
     }
     

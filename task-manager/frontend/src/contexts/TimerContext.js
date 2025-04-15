@@ -11,11 +11,17 @@ export const useTimer = () => useContext(TimerContext);
 export const TimerProvider = ({ children }) => {
   // Timer states
   const [timeLeft, setTimeLeft] = useState(25 * 60); // 25 minutes in seconds
+  const [totalTime, setTotalTime] = useState(25 * 60); // Total time for the current session
   const [isRunning, setIsRunning] = useState(false);
   const [isBreak, setIsBreak] = useState(false);
   const [completed, setCompleted] = useState(0);
   const [activeTask, setActiveTask] = useState(null);
   const [currentPomodoroSession, setCurrentPomodoroSession] = useState(null);
+  const [sessionHistory, setSessionHistory] = useState([]);
+
+  // Constants for timer durations
+  const FOCUS_TIME = 25 * 60; // 25 minutes in seconds
+  const BREAK_TIME = 5 * 60; // 5 minutes in seconds
 
   // Time formatting helper
   const formatTime = (seconds) => {
@@ -30,7 +36,7 @@ export const TimerProvider = ({ children }) => {
       // Starting timer
       try {
         const sessionType = isBreak ? 'break' : 'focus';
-        const duration = isBreak ? 5 * 60 : 25 * 60; // 5 or 25 minutes in seconds
+        const duration = isBreak ? BREAK_TIME : FOCUS_TIME; // 5 or 25 minutes in seconds
         
         const sessionData = {
           task_id: activeTask ? activeTask.id : null,
@@ -41,6 +47,16 @@ export const TimerProvider = ({ children }) => {
         const response = await pomodoroApi.startSession(sessionData);
         setCurrentPomodoroSession(response);
         setIsRunning(true);
+        
+        // Add to session history
+        setSessionHistory(prev => [...prev, {
+          id: response.id,
+          type: sessionType,
+          startTime: new Date(),
+          taskId: activeTask ? activeTask.id : null,
+          taskName: activeTask ? activeTask.text : null
+        }]);
+        
       } catch (err) {
         console.error('Failed to start pomodoro session:', err);
         // Still allow the timer to run even if API call fails
@@ -55,7 +71,9 @@ export const TimerProvider = ({ children }) => {
   // Reset timer
   const resetTimer = () => {
     setIsRunning(false);
-    setTimeLeft(isBreak ? 5 * 60 : 25 * 60);
+    const newTime = isBreak ? BREAK_TIME : FOCUS_TIME;
+    setTimeLeft(newTime);
+    setTotalTime(newTime);
     setCurrentPomodoroSession(null);
   };
 
@@ -64,6 +82,22 @@ export const TimerProvider = ({ children }) => {
     setActiveTask(task);
     resetTimer();
   };
+
+  // Switch between focus and break modes
+  const switchMode = () => {
+    setIsBreak(prev => !prev);
+    const newTime = !isBreak ? BREAK_TIME : FOCUS_TIME;
+    setTimeLeft(newTime);
+    setTotalTime(newTime);
+    setIsRunning(false);
+  };
+
+  // Initialize timer based on mode
+  useEffect(() => {
+    const newTime = isBreak ? BREAK_TIME : FOCUS_TIME;
+    setTimeLeft(newTime);
+    setTotalTime(newTime);
+  }, [isBreak]);
 
   // Timer effect
   useEffect(() => {
@@ -81,6 +115,15 @@ export const TimerProvider = ({ children }) => {
               pomodoroApi.completeSession(currentPomodoroSession.id)
                 .then(() => {
                   console.log('Pomodoro session completed');
+                  
+                  // Update session history
+                  setSessionHistory(prev => 
+                    prev.map(session => 
+                      session.id === currentPomodoroSession.id 
+                        ? { ...session, completed: true, endTime: new Date() } 
+                        : session
+                    )
+                  );
                 })
                 .catch(err => {
                   console.error('Failed to complete pomodoro session:', err);
@@ -99,7 +142,11 @@ export const TimerProvider = ({ children }) => {
             // Toggle between session and break
             setIsBreak(prev => !prev);
             setCurrentPomodoroSession(null);
-            return isBreak ? 25 * 60 : 5 * 60;
+            
+            // Set new time based on the new mode
+            const newTime = isBreak ? FOCUS_TIME : BREAK_TIME;
+            setTotalTime(newTime);
+            return newTime;
           }
           return prevTime - 1;
         });
@@ -114,16 +161,21 @@ export const TimerProvider = ({ children }) => {
   // The context value that will be provided
   const timerContextValue = {
     timeLeft,
+    totalTime,
     isRunning,
     isBreak,
     completed,
     activeTask,
     currentPomodoroSession,
+    sessionHistory,
     formatTime,
     toggleTimer,
     resetTimer,
     setTaskActive,
-    setActiveTask
+    setActiveTask,
+    switchMode,
+    FOCUS_TIME,
+    BREAK_TIME
   };
 
   return (

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, Navigate, useLocation } from 'react-router-dom';
 import { Home, BarChart2, Clock, Calendar, Settings, Menu, X, LogOut } from 'lucide-react';
 import TaskManager from './components/TaskManager';
@@ -9,13 +9,14 @@ import Login from './components/auth/Login';
 import Register from './components/auth/Register';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import { userApi } from './services/api';
-import { TimerProvider } from './contexts/TimerContext';
+import { TimerProvider, useTimer } from './contexts/TimerContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 
 // Navigation component that uses useLocation hook
 function Navigation({ mobileMenuOpen, closeMobileMenu, currentUser, logout }) {
   const location = useLocation();
   const pathname = location.pathname;
+  const { isBreak } = useTimer();
   
   return (
     <>
@@ -23,28 +24,44 @@ function Navigation({ mobileMenuOpen, closeMobileMenu, currentUser, logout }) {
       <nav className="hidden sm:ml-6 sm:flex sm:space-x-8">
         <Link
           to="/"
-          className={`inline-flex items-center px-1 pt-1 border-b-2 ${pathname === '/' ? 'border-blue-500 text-sm font-medium text-gray-900' : 'border-transparent text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+          className={`inline-flex items-center px-1 pt-1 border-b-2 transition-colors duration-300 ${
+            pathname === '/' 
+              ? (isBreak ? 'border-break-primary text-break-dark' : 'border-work-primary text-work-dark') 
+              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+          }`}
         >
           <Home className="h-5 w-5 mr-1" />
           Tasks
         </Link>
         <Link
           to="/history"
-          className={`inline-flex items-center px-1 pt-1 border-b-2 ${pathname === '/history' ? 'border-blue-500 text-sm font-medium text-gray-900' : 'border-transparent text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+          className={`inline-flex items-center px-1 pt-1 border-b-2 transition-colors duration-300 ${
+            pathname === '/history' 
+              ? (isBreak ? 'border-break-primary text-break-dark' : 'border-work-primary text-work-dark') 
+              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+          }`}
         >
           <Calendar className="h-5 w-5 mr-1" />
           History
         </Link>
         <Link
           to="/pomodoro"
-          className={`inline-flex items-center px-1 pt-1 border-b-2 ${pathname === '/pomodoro' ? 'border-blue-500 text-sm font-medium text-gray-900' : 'border-transparent text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+          className={`inline-flex items-center px-1 pt-1 border-b-2 transition-colors duration-300 ${
+            pathname === '/pomodoro' 
+              ? (isBreak ? 'border-break-primary text-break-dark' : 'border-work-primary text-work-dark') 
+              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+          }`}
         >
           <Clock className="h-5 w-5 mr-1" />
           Pomodoro
         </Link>
         <Link
           to="/dashboard"
-          className={`inline-flex items-center px-1 pt-1 border-b-2 ${pathname === '/dashboard' ? 'border-blue-500 text-sm font-medium text-gray-900' : 'border-transparent text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+          className={`inline-flex items-center px-1 pt-1 border-b-2 transition-colors duration-300 ${
+            pathname === '/dashboard' 
+              ? (isBreak ? 'border-break-primary text-break-dark' : 'border-work-primary text-work-dark') 
+              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+          }`}
         >
           <BarChart2 className="h-5 w-5 mr-1" />
           Dashboard
@@ -57,7 +74,11 @@ function Navigation({ mobileMenuOpen, closeMobileMenu, currentUser, logout }) {
           <div className="pt-2 pb-3 space-y-1">
             <Link
               to="/"
-              className={`block pl-3 pr-4 py-2 border-l-4 ${pathname === '/' ? 'border-blue-500 text-base font-medium text-blue-700 bg-blue-50' : 'border-transparent text-base font-medium text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800'}`}
+              className={`block pl-3 pr-4 py-2 border-l-4 transition-colors duration-300 ${
+                pathname === '/' 
+                  ? (isBreak ? 'border-break-primary text-break-dark bg-break-light' : 'border-work-primary text-work-dark bg-work-light') 
+                  : 'border-transparent text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800'
+              }`}
               onClick={closeMobileMenu}
             >
               <div className="flex items-center">
@@ -67,7 +88,11 @@ function Navigation({ mobileMenuOpen, closeMobileMenu, currentUser, logout }) {
             </Link>
             <Link
               to="/history"
-              className={`block pl-3 pr-4 py-2 border-l-4 ${pathname === '/history' ? 'border-blue-500 text-base font-medium text-blue-700 bg-blue-50' : 'border-transparent text-base font-medium text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800'}`}
+              className={`block pl-3 pr-4 py-2 border-l-4 transition-colors duration-300 ${
+                pathname === '/history' 
+                  ? (isBreak ? 'border-break-primary text-break-dark bg-break-light' : 'border-work-primary text-work-dark bg-work-light') 
+                  : 'border-transparent text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800'
+              }`}
               onClick={closeMobileMenu}
             >
               <div className="flex items-center">
@@ -77,7 +102,11 @@ function Navigation({ mobileMenuOpen, closeMobileMenu, currentUser, logout }) {
             </Link>
             <Link
               to="/pomodoro"
-              className={`block pl-3 pr-4 py-2 border-l-4 ${pathname === '/pomodoro' ? 'border-blue-500 text-base font-medium text-blue-700 bg-blue-50' : 'border-transparent text-base font-medium text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800'}`}
+              className={`block pl-3 pr-4 py-2 border-l-4 transition-colors duration-300 ${
+                pathname === '/pomodoro' 
+                  ? (isBreak ? 'border-break-primary text-break-dark bg-break-light' : 'border-work-primary text-work-dark bg-work-light') 
+                  : 'border-transparent text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800'
+              }`}
               onClick={closeMobileMenu}
             >
               <div className="flex items-center">
@@ -87,7 +116,11 @@ function Navigation({ mobileMenuOpen, closeMobileMenu, currentUser, logout }) {
             </Link>
             <Link
               to="/dashboard"
-              className={`block pl-3 pr-4 py-2 border-l-4 ${pathname === '/dashboard' ? 'border-blue-500 text-base font-medium text-blue-700 bg-blue-50' : 'border-transparent text-base font-medium text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800'}`}
+              className={`block pl-3 pr-4 py-2 border-l-4 transition-colors duration-300 ${
+                pathname === '/dashboard' 
+                  ? (isBreak ? 'border-break-primary text-break-dark bg-break-light' : 'border-work-primary text-work-dark bg-work-light') 
+                  : 'border-transparent text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800'
+              }`}
               onClick={closeMobileMenu}
             >
               <div className="flex items-center">
@@ -101,7 +134,7 @@ function Navigation({ mobileMenuOpen, closeMobileMenu, currentUser, logout }) {
                   logout();
                   closeMobileMenu();
                 }}
-                className="w-full text-left block pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800"
+                className="w-full text-left block pl-3 pr-4 py-2 border-l-4 border-transparent text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800 transition-colors duration-300"
               >
                 <div className="flex items-center">
                   <LogOut className="h-5 w-5 mr-2" />
@@ -119,6 +152,7 @@ function Navigation({ mobileMenuOpen, closeMobileMenu, currentUser, logout }) {
 // Main App Layout component
 function AppLayout() {
   const { currentUser, logout } = useAuth();
+  const { isBreak, isRunning } = useTimer();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Toggle mobile menu
@@ -131,15 +165,44 @@ function AppLayout() {
     setMobileMenuOpen(false);
   };
 
+  // Update body class based on timer state
+  useEffect(() => {
+    const body = document.body;
+    if (isBreak) {
+      body.classList.add('break-mode');
+      body.classList.remove('work-mode');
+    } else {
+      body.classList.add('work-mode');
+      body.classList.remove('break-mode');
+    }
+
+    return () => {
+      body.classList.remove('break-mode', 'work-mode');
+    };
+  }, [isBreak]);
+
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col">
+    <div className={`min-h-screen flex flex-col transition-colors duration-500 ${
+      isBreak ? 'bg-break-background' : 'bg-work-background'
+    }`}>
       {/* Header */}
-      <header className="bg-white shadow-sm">
+      <header className={`shadow-sm transition-colors duration-500 ${
+        isBreak ? 'bg-white' : 'bg-white'
+      }`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex">
               <div className="flex-shrink-0 flex items-center">
-                <h1 className="text-xl font-bold text-gray-800">Task Manager</h1>
+                <div className={`flex items-center transition-colors duration-500 ${
+                  isBreak ? 'text-break-primary' : 'text-work-primary'
+                }`}>
+                  <Clock className="h-6 w-6 mr-2" />
+                  <h1 className={`text-xl font-bold ${
+                    isBreak ? 'text-break-dark' : 'text-work-dark'
+                  }`}>
+                    Task Manager
+                  </h1>
+                </div>
               </div>
               <div className="ml-6 flex items-center">
                 {currentUser && (
@@ -150,12 +213,29 @@ function AppLayout() {
               </div>
             </div>
             
+            {/* Timer status indicator */}
+            {isRunning && (
+              <div className="hidden sm:flex items-center">
+                <div className={`px-3 py-1 rounded-full text-sm font-medium ${
+                  isBreak 
+                    ? 'bg-break-light text-break-dark' 
+                    : 'bg-work-light text-work-dark'
+                }`}>
+                  {isBreak ? '☕ Break Time' : '🎯 Focus Mode'}
+                </div>
+              </div>
+            )}
+            
             {/* Logout button */}
             {currentUser && (
               <div className="hidden sm:ml-6 sm:flex sm:items-center">
                 <button
                   onClick={logout}
-                  className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-gray-700 bg-gray-100 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  className={`inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md transition-colors duration-300 ${
+                    isBreak 
+                      ? 'text-break-dark bg-break-light hover:bg-break-primary hover:text-white' 
+                      : 'text-work-dark bg-work-light hover:bg-work-primary hover:text-white'
+                  }`}
                 >
                   <LogOut className="h-4 w-4 mr-1" />
                   Logout
@@ -167,7 +247,11 @@ function AppLayout() {
             <div className="flex items-center sm:hidden">
               <button
                 onClick={toggleMobileMenu}
-                className="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
+                className={`inline-flex items-center justify-center p-2 rounded-md transition-colors duration-300 ${
+                  isBreak 
+                    ? 'text-break-dark hover:text-break-primary hover:bg-break-light' 
+                    : 'text-work-dark hover:text-work-primary hover:bg-work-light'
+                }`}
               >
                 <span className="sr-only">Open main menu</span>
                 {mobileMenuOpen ? (
@@ -207,11 +291,34 @@ function AppLayout() {
       </main>
       
       {/* Footer */}
-      <footer className="bg-white border-t border-gray-200 py-4">
+      <footer className={`border-t transition-colors duration-500 py-4 ${
+        isBreak ? 'bg-white border-break-light' : 'bg-white border-work-light'
+      }`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <p className="text-center text-sm text-gray-500">
-            Task Manager © {new Date().getFullYear()} - Stay productive and focused!
-          </p>
+          <div className="flex flex-col sm:flex-row justify-between items-center">
+            <p className={`text-center text-sm ${
+              isBreak ? 'text-break-dark' : 'text-work-dark'
+            }`}>
+              Task Manager © {new Date().getFullYear()} - Stay productive and focused!
+            </p>
+            <div className="mt-2 sm:mt-0 flex space-x-4">
+              <a href="#" className={`text-xs ${
+                isBreak ? 'text-break-primary hover:text-break-dark' : 'text-work-primary hover:text-work-dark'
+              } transition-colors duration-300`}>
+                Privacy Policy
+              </a>
+              <a href="#" className={`text-xs ${
+                isBreak ? 'text-break-primary hover:text-break-dark' : 'text-work-primary hover:text-work-dark'
+              } transition-colors duration-300`}>
+                Terms of Service
+              </a>
+              <a href="#" className={`text-xs ${
+                isBreak ? 'text-break-primary hover:text-break-dark' : 'text-work-primary hover:text-work-dark'
+              } transition-colors duration-300`}>
+                Contact
+              </a>
+            </div>
+          </div>
         </div>
       </footer>
     </div>

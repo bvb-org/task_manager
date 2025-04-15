@@ -66,12 +66,8 @@ function initDb() {
       FOREIGN KEY (user_id) REFERENCES users(id)
     );
   `);
-  
-  // Create default user if none exists
-  const row = db.prepare('SELECT id FROM users LIMIT 1').get();
-  if (!row) {
-    db.prepare('INSERT INTO users (username, email, password) VALUES (?, ?, ?)').run('default', 'bogdan.bujor08@gmail.com', 'merlin97');
-  }
+  // We no longer create a default user automatically
+  // Let users register through the UI to ensure proper password hashing
 }
 
 module.exports = db;

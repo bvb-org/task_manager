@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, Navigate, useLocation } from 'react-router-dom';
-import { Home, BarChart2, Clock, Calendar, Settings, Menu, X, LogOut } from 'lucide-react';
+import { Home, BarChart2, Clock, Calendar, Menu, X, LogOut } from 'lucide-react';
 import TaskManager from './components/TaskManager';
 import TaskHistory from './components/TaskHistory';
 import PomodoroHistory from './components/PomodoroHistory';
@@ -8,7 +8,6 @@ import Dashboard from './components/Dashboard';
 import Login from './components/auth/Login';
 import Register from './components/auth/Register';
 import ProtectedRoute from './components/auth/ProtectedRoute';
-import { userApi } from './services/api';
 import { TimerProvider, useTimer } from './contexts/TimerContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 
@@ -302,17 +301,17 @@ function AppLayout() {
               Task Manager © {new Date().getFullYear()} - Stay productive and focused!
             </p>
             <div className="mt-2 sm:mt-0 flex space-x-4">
-              <a href="#" className={`text-xs ${
+              <a href="/privacy" className={`text-xs ${
                 isBreak ? 'text-break-primary hover:text-break-dark' : 'text-work-primary hover:text-work-dark'
               } transition-colors duration-300`}>
                 Privacy Policy
               </a>
-              <a href="#" className={`text-xs ${
+              <a href="/terms" className={`text-xs ${
                 isBreak ? 'text-break-primary hover:text-break-dark' : 'text-work-primary hover:text-work-dark'
               } transition-colors duration-300`}>
                 Terms of Service
               </a>
-              <a href="#" className={`text-xs ${
+              <a href="/contact" className={`text-xs ${
                 isBreak ? 'text-break-primary hover:text-break-dark' : 'text-work-primary hover:text-work-dark'
               } transition-colors duration-300`}>
                 Contact
@@ -327,6 +326,11 @@ function AppLayout() {
 
 function App() {
   const [error, setError] = useState(null);
+  
+  // Error handler function that can be used throughout the app
+  const handleError = (errorMessage) => {
+    setError(errorMessage);
+  };
 
   if (error) {
     return (

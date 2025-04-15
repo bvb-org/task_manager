@@ -1,0 +1,53 @@
+name: Deploy to Raspberry Pi
+
+on:
+  workflow_dispatch:
+    # This makes the workflow manually triggerable from the GitHub Actions UI
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    # This ensures the workflow runs on your self-hosted runner with the "self-hosted" label
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up environment
+        run: |
+          echo "Setting up environment..."
+          # Create data directory if it doesn't exist
+          mkdir -p task-manager/data
+
+      - name: Update CORS settings for port 3004
+        run: |
+          echo "Updating CORS settings in frontend API service..."
+          # Add localhost:3004 to the allowed origins if needed
+          # The current CORS setup allows all origins (*) so this is just for documentation
+
+      - name: Build and deploy with Docker Compose
+        run: |
+          echo "Building and deploying with Docker Compose..."
+          cd task-manager/docker
+          
+          # Stop any existing containers
+          docker-compose down
+          
+          # Build and start the containers
+          docker-compose up -d --build
+          
+          echo "Deployment completed successfully!"
+
+      - name: Verify deployment
+        run: |
+          echo "Verifying deployment..."
+          # Wait for services to start
+          sleep 10
+          
+          # Check if containers are running
+          docker ps | grep task-manager
+          
+          # Check if frontend is accessible
+          curl -s -o /dev/null -w "%{http_code}" http://localhost:3004 || true
+          
+          echo "Deployment verification completed."

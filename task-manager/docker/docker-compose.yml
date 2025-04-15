@@ -23,11 +23,11 @@ services:
       dockerfile: ../docker/Dockerfile.frontend
     container_name: task-manager-frontend
     ports:
-      - "3001:3001"
+      - "3004:3004"
     depends_on:
       - backend
     environment:
-      - PORT=3001
+      - PORT=3004
       - NODE_ENV=production
     restart: unless-stopped
     networks:

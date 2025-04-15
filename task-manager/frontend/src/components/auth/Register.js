@@ -53,12 +53,12 @@ const Register = () => {
       // Validate response
       if (!response) {
         console.error('Empty response received');
-        throw { error: 'No response received from server' };
+        throw new Error('No response received from server');
       }
       
       if (!response.user || !response.token) {
         console.error('Invalid response format:', response);
-        throw { error: 'Invalid response format from server' };
+        throw new Error('Invalid response format from server');
       }
       
       // Show success message
@@ -280,13 +280,13 @@ const Register = () => {
           
           <div className="mt-6 flex justify-center space-x-4">
             <div className="text-xs text-neutral-500 hover:text-neutral-700 transition-colors">
-              <a href="#">Privacy Policy</a>
+              <a href="/privacy">Privacy Policy</a>
             </div>
             <div className="text-xs text-neutral-500 hover:text-neutral-700 transition-colors">
-              <a href="#">Terms of Service</a>
+              <a href="/terms">Terms of Service</a>
             </div>
             <div className="text-xs text-neutral-500 hover:text-neutral-700 transition-colors">
-              <a href="#">Contact</a>
+              <a href="/contact">Contact</a>
             </div>
           </div>
         </div>

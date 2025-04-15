@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Clock, Check, CheckCircle, Circle, Play, Pause, RefreshCw, AlertCircle, Coffee, Zap, List, CheckSquare } from 'lucide-react';
+import { Clock, CheckCircle, Circle, Play, Pause, RefreshCw, AlertCircle, Coffee, Zap, List, CheckSquare } from 'lucide-react';
 import { tasksApi } from '../services/api';
 import { useTimer } from '../contexts/TimerContext';
 
@@ -9,7 +9,6 @@ const TaskManager = () => {
     timeLeft,
     isRunning,
     isBreak,
-    completed,
     activeTask,
     setActiveTask,
     formatTime,
@@ -35,8 +34,6 @@ const TaskManager = () => {
   const [filterCompleted, setFilterCompleted] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [currentPomodoroSession, setCurrentPomodoroSession] = useState(null);
-  const [timerAnimation, setTimerAnimation] = useState(false);
   
   // Refs for animations
   const timerRef = useRef(null);
@@ -166,16 +163,8 @@ const TaskManager = () => {
     if (activeTask && !isRunning && timeLeft === 0 && !isBreak) {
       toggleComplete(activeTask.id);
     }
-  }, [activeTask, isRunning, timeLeft, isBreak]);
+  }, [activeTask, isRunning, timeLeft, isBreak, toggleComplete]);
 
-  // Effect for timer animation
-  useEffect(() => {
-    if (isRunning) {
-      setTimerAnimation(true);
-    } else {
-      setTimerAnimation(false);
-    }
-  }, [isRunning]);
 
   // Helper for priority color
   const getPriorityColor = (priority) => {
@@ -295,7 +284,7 @@ const TaskManager = () => {
           >
             {/* Pulse animation when timer is running */}
             {isRunning && (
-              <div className={`absolute inset-0 rounded-full ${
+              <div className={`absolute inset-0 rounded-full pointer-events-none ${
                 isBreak ? 'pulse-ring bg-break-primary' : 'pulse-ring bg-work-primary'
               }`}></div>
             )}
@@ -327,7 +316,7 @@ const TaskManager = () => {
             
             {/* Timer text */}
             <div className="z-10 text-center">
-              <div className={`timer-display text-5xl font-mono transition-colors duration-500 ${
+              <div className={`timer-display text-4xl font-mono transition-colors duration-500 ${
                 isBreak ? 'text-break-dark' : 'text-work-dark'
               }`}>
                 {formatTime(timeLeft)}
@@ -341,12 +330,12 @@ const TaskManager = () => {
           </div>
           
           {/* Timer controls */}
-          <div className="flex space-x-4">
-            <button 
-              onClick={toggleTimer} 
+          <div className="flex space-x-4 relative z-20">
+            <button
+              onClick={toggleTimer}
               className={`p-3 rounded-full shadow-md transition-all duration-300 ${
-                isRunning 
-                  ? (isBreak ? 'bg-break-primary text-white hover:bg-break-dark' : 'bg-work-primary text-white hover:bg-work-dark') 
+                isRunning
+                  ? (isBreak ? 'bg-break-primary text-white hover:bg-break-dark' : 'bg-work-primary text-white hover:bg-work-dark')
                   : (isBreak ? 'bg-break-light text-break-primary hover:bg-break-primary hover:text-white' : 'bg-work-light text-work-primary hover:bg-work-primary hover:text-white')
               }`}
             >

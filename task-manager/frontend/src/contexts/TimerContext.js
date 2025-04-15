@@ -33,6 +33,9 @@ export const TimerProvider = ({ children }) => {
   // Start/pause timer
   const toggleTimer = async () => {
     if (!isRunning) {
+      // Set running state immediately for better UI responsiveness
+      setIsRunning(true);
+      
       // Starting timer
       try {
         const sessionType = isBreak ? 'break' : 'focus';
@@ -44,9 +47,9 @@ export const TimerProvider = ({ children }) => {
           type: sessionType
         };
         
+        // Make API call after UI is updated
         const response = await pomodoroApi.startSession(sessionData);
         setCurrentPomodoroSession(response);
-        setIsRunning(true);
         
         // Add to session history
         setSessionHistory(prev => [...prev, {
@@ -59,8 +62,7 @@ export const TimerProvider = ({ children }) => {
         
       } catch (err) {
         console.error('Failed to start pomodoro session:', err);
-        // Still allow the timer to run even if API call fails
-        setIsRunning(true);
+        // Timer is already running from the state set above
       }
     } else {
       // Pausing timer
@@ -69,12 +71,21 @@ export const TimerProvider = ({ children }) => {
   };
 
   // Reset timer
-  const resetTimer = () => {
+  const resetTimer = async () => {
     setIsRunning(false);
     const newTime = isBreak ? BREAK_TIME : FOCUS_TIME;
     setTimeLeft(newTime);
     setTotalTime(newTime);
-    setCurrentPomodoroSession(null);
+    
+    // If there's an active session, try to cancel it
+    if (currentPomodoroSession) {
+      try {
+        await pomodoroApi.completeSession(currentPomodoroSession.id);
+      } catch (err) {
+        console.error('Failed to complete pomodoro session on reset:', err);
+      }
+      setCurrentPomodoroSession(null);
+    }
   };
 
   // Set active task for the pomodoro
@@ -156,7 +167,7 @@ export const TimerProvider = ({ children }) => {
     }
     
     return () => clearInterval(interval);
-  }, [isRunning, isBreak, activeTask, currentPomodoroSession]);
+  }, [isRunning, isBreak, activeTask, currentPomodoroSession, BREAK_TIME, FOCUS_TIME]);
 
   // The context value that will be provided
   const timerContextValue = {

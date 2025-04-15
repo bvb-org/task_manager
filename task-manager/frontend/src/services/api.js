@@ -2,8 +2,18 @@ import axios from 'axios';
 
 // Determine the correct API URL based on environment
 const getBaseURL = () => {
-  // In Docker environment, always use the explicit backend URL
-  return 'http://localhost:5000/api';
+  // Check if we're running on the Cloudflare tunnel domain
+  if (window.location.hostname === 'pomodoro.gris.ninja') {
+    // When running on Cloudflare tunnel, use a relative URL to inherit the HTTPS protocol
+    return '/api';
+  } else if (window.location.hostname === 'localhost') {
+    // Local development
+    return 'http://localhost:5000/api';
+  } else {
+    // Docker development environment or other environments
+    // Use the container name when inside Docker network
+    return 'http://task-manager-backend:5000/api';
+  }
 };
 
 // Use the getBaseURL function to get the baseURL

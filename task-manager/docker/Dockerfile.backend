@@ -1,19 +1,26 @@
-# Use a specific image with Node.js and SQLite3 pre-installed
-FROM nikolaik/python-nodejs:python3.9-nodejs16
+# Use a specific Node.js image that's compatible with native modules
+FROM node:16
 
 WORKDIR /app
 
 # Copy package.json and package-lock.json
 COPY package*.json ./
 
-# Install dependencies
+# Install dependencies with specific flags to ensure proper compilation
 RUN apt-get update && \
-    apt-get install -y sqlite3 && \
-    rm -rf /var/lib/apt/lists/* && \
-    npm install
+    apt-get install -y --no-install-recommends \
+    python3 \
+    make \
+    g++ \
+    sqlite3 \
+    libsqlite3-dev \
+    && npm install --unsafe-perm \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
-# Copy source code
-COPY . .
+# Copy source code (excluding node_modules)
+COPY src/ ./src/
+COPY .env* ./
 
 # Create data directory
 RUN mkdir -p data

@@ -23,7 +23,7 @@ services:
       dockerfile: ../docker/Dockerfile.frontend
     container_name: task-manager-frontend
     ports:
-      - "80:3001"
+      - "3001:3001"
     depends_on:
       - backend
     environment:

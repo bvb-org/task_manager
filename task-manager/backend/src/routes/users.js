@@ -48,6 +48,7 @@ router.get('/', authenticateToken, (req, res) => {
 router.post('/register', async (req, res) => {
   const { username, email, password } = req.body;
   
+  console.log(`Registration attempt for user: ${email}`);
   if (!username || !email || !password) {
     return res.status(400).json({ error: 'Username, email and password are required' });
   }
@@ -57,6 +58,7 @@ router.post('/register', async (req, res) => {
     const existingUser = db.prepare('SELECT * FROM users WHERE username = ? OR email = ?').get(username, email);
     
     if (existingUser) {
+      console.log(`Registration failed: Username or email already exists for ${email}`);
       return res.status(409).json({ error: 'Username or email already exists' });
     }
     
@@ -73,9 +75,10 @@ router.post('/register', async (req, res) => {
     // Generate JWT token
     const token = jwt.sign({ id: newUser.id, username: newUser.username }, JWT_SECRET, { expiresIn: '7d' });
     
+    console.log(`User registered successfully: ${username} (ID: ${newUser.id})`);
     res.status(201).json({ user: newUser, token });
   } catch (err) {
-    console.error('Error creating user:', err);
+    console.error(`Error creating user ${email}:`, err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -84,6 +87,8 @@ router.post('/register', async (req, res) => {
 // Login a user
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
+  
+  console.log(`Login attempt for user: ${email}`);
   
   if (!email || !password) {
     return res.status(400).json({ error: 'Email and password are required' });
@@ -94,13 +99,14 @@ router.post('/login', async (req, res) => {
     const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
     
     if (!user) {
+      console.log(`Login failed: User not found for email ${email}`);
       return res.status(401).json({ error: 'Invalid email or password' });
     }
     
     // Check password
     const validPassword = await bcrypt.compare(password, user.password);
-    
     if (!validPassword) {
+      console.log(`Login failed: Invalid password for user ${email}`);
       return res.status(401).json({ error: 'Invalid email or password' });
     }
     
@@ -115,9 +121,10 @@ router.post('/login', async (req, res) => {
       created_at: user.created_at
     };
     
+    console.log(`User logged in successfully: ${user.username} (ID: ${user.id})`);
     res.json({ user: userInfo, token });
   } catch (err) {
-    console.error('Error logging in:', err);
+    console.error(`Error logging in user ${email}:`, err);
     res.status(500).json({ error: err.message });
   }
 });

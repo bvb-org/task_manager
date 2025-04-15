@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { userApi } from '../../services/api';
+import { useAuth } from '../../contexts/AuthContext';
+import { testBackendConnection } from '../../services/api';
 
 const Register = () => {
   const [username, setUsername] = useState('');
@@ -8,12 +9,22 @@ const Register = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState(null);
   const navigate = useNavigate();
+  const { register } = useAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setSuccess('');
+    
+    // Validate form fields
+    if (!username || !email || !password || !confirmPassword) {
+      setError('All fields are required');
+      return;
+    }
     
     // Validate passwords match
     if (password !== confirmPassword) {
@@ -24,18 +35,69 @@ const Register = () => {
     setLoading(true);
 
     try {
-      const response = await userApi.register({ username, email, password });
+      console.log('Registration form submitted for:', email);
       
-      // Save token and user data
-      userApi.setAuthToken(response.token);
-      userApi.setUser(response.user);
+      // Debug the request
+      console.log('Sending registration data:', { username, email, password: '***' });
       
-      // Redirect to dashboard
-      navigate('/');
+      // Create a direct API call to test connection
+      const userData = { username, email, password };
+      
+      // Call the register function from AuthContext
+      const response = await register(userData);
+      
+      // Debug the response
+      console.log('Registration response received in component:', response);
+      
+      // Validate response
+      if (!response) {
+        console.error('Empty response received');
+        throw { error: 'No response received from server' };
+      }
+      
+      if (!response.user || !response.token) {
+        console.error('Invalid response format:', response);
+        throw { error: 'Invalid response format from server' };
+      }
+      
+      // Show success message
+      setSuccess(`Registration successful! Welcome, ${response.user.username}`);
+      console.log('Setting success message and preparing to navigate');
+      
+      // Redirect to dashboard after a short delay to show the success message
+      setTimeout(() => {
+        console.log('Navigating to dashboard');
+        navigate('/');
+      }, 1500);
     } catch (err) {
-      setError(err.error || 'Failed to register. Please try again.');
+      console.error('Registration form error details:', err);
+      
+      // Handle specific error cases
+      if (err.error === 'Username or email already exists') {
+        setError('This username or email is already registered. Please use a different one.');
+      } else if (err.error && typeof err.error === 'string') {
+        setError(err.error);
+      } else if (err.message) {
+        setError(err.message);
+      } else {
+        setError('Failed to register. Please try again.');
+      }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const checkConnection = async () => {
+    setConnectionStatus('Checking connection...');
+    try {
+      const result = await testBackendConnection();
+      if (result.success) {
+        setConnectionStatus('✅ Connected to backend');
+      } else {
+        setConnectionStatus(`❌ Connection failed: ${result.message}`);
+      }
+    } catch (err) {
+      setConnectionStatus(`❌ Error: ${err.message}`);
     }
   };
 
@@ -51,6 +113,12 @@ const Register = () => {
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
             <span className="block sm:inline">{error}</span>
+          </div>
+        )}
+        
+        {success && (
+          <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative" role="alert">
+            <span className="block sm:inline">{success}</span>
           </div>
         )}
         
@@ -102,7 +170,7 @@ const Register = () => {
               <label htmlFor="confirm-password" className="sr-only">Confirm Password</label>
               <input
                 id="confirm-password"
-                name="confirm-password"
+                name="confirmPassword"
                 type="password"
                 autoComplete="new-password"
                 required
@@ -139,6 +207,21 @@ const Register = () => {
                 Sign in here
               </Link>
             </p>
+          </div>
+          
+          <div className="mt-4 text-center">
+            <button
+              type="button"
+              onClick={checkConnection}
+              className="text-sm text-blue-600 hover:text-blue-500"
+            >
+              Test Backend Connection
+            </button>
+            {connectionStatus && (
+              <div className="mt-2 text-sm text-gray-600">
+                {connectionStatus}
+              </div>
+            )}
           </div>
         </form>
       </div>

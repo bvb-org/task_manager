@@ -13,7 +13,7 @@ import { TimerProvider } from './contexts/TimerContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 
 // Navigation component that uses useLocation hook
-function Navigation({ mobileMenuOpen, closeMobileMenu }) {
+function Navigation({ mobileMenuOpen, closeMobileMenu, currentUser, logout }) {
   const location = useLocation();
   const pathname = location.pathname;
   
@@ -95,6 +95,20 @@ function Navigation({ mobileMenuOpen, closeMobileMenu }) {
                 Dashboard
               </div>
             </Link>
+            {currentUser && (
+              <button
+                onClick={() => {
+                  logout();
+                  closeMobileMenu();
+                }}
+                className="w-full text-left block pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800"
+              >
+                <div className="flex items-center">
+                  <LogOut className="h-5 w-5 mr-2" />
+                  Logout
+                </div>
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -165,7 +179,12 @@ function AppLayout() {
             </div>
             
             {/* Use the Navigation component */}
-            <Navigation mobileMenuOpen={mobileMenuOpen} closeMobileMenu={closeMobileMenu} />
+            <Navigation
+              mobileMenuOpen={mobileMenuOpen}
+              closeMobileMenu={closeMobileMenu}
+              currentUser={currentUser}
+              logout={logout}
+            />
           </div>
         </div>
       </header>

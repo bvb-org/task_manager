@@ -1,29 +1,35 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { userApi } from '../../services/api';
+import { useAuth } from '../../contexts/AuthContext';
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { login } = useAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setSuccess('');
     setLoading(true);
 
     try {
-      const response = await userApi.login({ email, password });
+      console.log('Login form submitted for:', email);
+      const response = await login(email, password);
       
-      // Save token and user data
-      userApi.setAuthToken(response.token);
-      userApi.setUser(response.user);
+      // Show success message
+      setSuccess(`Login successful! Welcome back, ${response.user.username}`);
       
-      // Redirect to dashboard
-      navigate('/');
+      // Redirect to dashboard after a short delay to show the success message
+      setTimeout(() => {
+        navigate('/');
+      }, 1500);
     } catch (err) {
+      console.error('Login form error:', err);
       setError(err.error || 'Failed to login. Please check your credentials.');
     } finally {
       setLoading(false);
@@ -38,12 +44,17 @@ const Login = () => {
             Sign in to your account
           </h2>
         </div>
-        
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
             <span className="block sm:inline">{error}</span>
           </div>
         )}
+        {success && (
+          <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative" role="alert">
+            <span className="block sm:inline">{success}</span>
+          </div>
+        )}
+        
         
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="rounded-md shadow-sm -space-y-px">

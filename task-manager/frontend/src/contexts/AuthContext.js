@@ -35,13 +35,16 @@ export const AuthProvider = ({ children }) => {
   // Login function
   const login = async (email, password) => {
     try {
+      console.log('Attempting login for:', email);
       const response = await userApi.login({ email, password });
+      console.log('Login successful:', response);
       userApi.setAuthToken(response.token);
       userApi.setUser(response.user);
       setCurrentUser(response.user);
       setIsAuthenticated(true);
       return response;
     } catch (error) {
+      console.error('Login failed:', error);
       throw error;
     }
   };
@@ -49,22 +52,49 @@ export const AuthProvider = ({ children }) => {
   // Register function
   const register = async (userData) => {
     try {
+      console.log('Attempting registration for:', userData.email);
+      
+      // Validate required fields
+      if (!userData.username || !userData.email || !userData.password) {
+        throw { error: 'All fields are required' };
+      }
+      
+      console.log('Sending registration request with data:', {
+        username: userData.username,
+        email: userData.email,
+        password: '***'
+      });
+      
       const response = await userApi.register(userData);
+      
+      console.log('Registration response received in AuthContext:', response);
+      
+      // Check if response has the expected format
+      if (!response || !response.user || !response.token) {
+        console.error('Invalid response format:', response);
+        throw { error: 'Invalid response from server' };
+      }
+      
+      // Store auth data
       userApi.setAuthToken(response.token);
       userApi.setUser(response.user);
       setCurrentUser(response.user);
       setIsAuthenticated(true);
+      
       return response;
     } catch (error) {
+      console.error('Registration failed in AuthContext:', error);
       throw error;
     }
   };
 
   // Logout function
   const logout = () => {
+    console.log('Logging out user');
     userApi.logout();
     setCurrentUser(null);
     setIsAuthenticated(false);
+    console.log('User logged out successfully');
   };
 
   const value = {

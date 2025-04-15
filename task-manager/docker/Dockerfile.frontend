@@ -11,8 +11,11 @@ RUN sed -i 's|"proxy": "http://localhost:5000"|"proxy": "http://backend:5000"|g'
 # Install dependencies
 RUN npm install
 
-# Copy source code
-COPY . .
+# Copy only necessary source files (excluding node_modules)
+COPY public/ ./public/
+COPY src/ ./src/
+COPY .env* ./
+COPY tailwind.config.js ./
 
 # Build the app
 RUN npm run build

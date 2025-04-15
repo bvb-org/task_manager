@@ -12,30 +12,23 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 const app = express();
 // Middleware
 
-// Disable CORS entirely for debugging
-app.use((req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  
-  // Handle preflight requests
-  if (req.method === 'OPTIONS') {
-    return res.status(204).end();
-  }
-  
-  next();
-});
+// Parse JSON request bodies - Move this up to ensure it runs before route handlers
+app.use(express.json());
 
-// Configure CORS middleware (this is now redundant but kept for safety)
+// Configure CORS middleware - Use a single CORS solution
 app.use(cors({
-  origin: true, // Allow any origin
+  origin: '*', // Allow any origin
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Origin'],
   credentials: true,
   preflightContinue: false,
   optionsSuccessStatus: 204
 }));
+
+// Handle OPTIONS requests explicitly
+app.options('*', (req, res) => {
+  res.status(204).end();
+});
 
 // Use helmet with CORS-friendly settings
 app.use(helmet({
@@ -45,12 +38,14 @@ app.use(helmet({
 // Log all requests
 app.use(morgan('combined'));
 
-// Parse JSON request bodies
-app.use(express.json());
-
 // Log all requests for debugging
 app.use((req, res, next) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+  
+  // Set content type for API requests
+  if (req.path.startsWith('/api/')) {
+    res.setHeader('Content-Type', 'application/json');
+  }
   
   // Track original response methods
   const originalSend = res.send;
@@ -73,7 +68,7 @@ app.use((req, res, next) => {
   
   next();
 });
-app.use(express.json());
+// express.json() is already applied at the top of the file
 
 // Authentication middleware
 const authenticateToken = (req, res, next) => {
@@ -107,10 +102,28 @@ app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', message: 'Server is running' });
 });
 
-// Routes
-app.use('/api/tasks', require('./routes/tasks'));
-app.use('/api/user', require('./routes/users'));
-app.use('/api/pomodoro', require('./routes/pomodoro'));
+// API Routes - explicitly set Content-Type for all API responses
+app.use('/api/tasks', (req, res, next) => {
+  res.setHeader('Content-Type', 'application/json');
+  next();
+}, require('./routes/tasks'));
+
+app.use('/api/user', (req, res, next) => {
+  res.setHeader('Content-Type', 'application/json');
+  next();
+}, require('./routes/users'));
+
+app.use('/api/pomodoro', (req, res, next) => {
+  res.setHeader('Content-Type', 'application/json');
+  next();
+}, require('./routes/pomodoro'));
+
+// Add a specific route for user registration to ensure proper handling
+app.post('/api/user/register', (req, res, next) => {
+  res.setHeader('Content-Type', 'application/json');
+  console.log('Registration request received:', req.body);
+  next();
+});
 
 // Serve static frontend in production
 if (process.env.NODE_ENV === 'production') {
@@ -131,15 +144,35 @@ if (process.env.NODE_ENV === 'production') {
 app.use((err, req, res, next) => {
   console.error(`Server error for ${req.method} ${req.path}:`, err.stack);
   
-  // Make sure we're sending a JSON response for API requests
+  // Always set content type for API requests
   if (req.path.startsWith('/api/') || req.path === '/health') {
     // Set content type explicitly to ensure JSON response
     res.setHeader('Content-Type', 'application/json');
-    return res.status(500).json({ error: err.message });
+    
+    // Log the error details for debugging
+    console.error('API Error:', {
+      path: req.path,
+      method: req.method,
+      error: err.message,
+      stack: err.stack
+    });
+    
+    return res.status(500).json({
+      error: err.message,
+      path: req.path,
+      timestamp: new Date().toISOString()
+    });
   }
   
   // For non-API requests, we can send HTML error page if needed
   res.status(500).json({ error: err.message });
+});
+
+// Add a 404 handler for API routes
+app.use('/api/*', (req, res) => {
+  console.log(`API route not found: ${req.method} ${req.path}`);
+  res.setHeader('Content-Type', 'application/json');
+  res.status(404).json({ error: 'API endpoint not found' });
 });
 
 const PORT = process.env.PORT || 5000;

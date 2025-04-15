@@ -29,27 +29,45 @@ const authenticateToken = (req, res, next) => {
 // GET /api/user
 // Returns the current user info (requires authentication)
 router.get('/', authenticateToken, (req, res) => {
+  // Explicitly set content type to ensure JSON response
+  res.setHeader('Content-Type', 'application/json');
+  
   try {
+    console.log(`Getting user info for ID: ${req.user?.id}`);
+    
+    if (!req.user || !req.user.id) {
+      console.log('User info request failed: No authenticated user');
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+    
     const user = db.prepare('SELECT id, username, email, created_at FROM users WHERE id = ?').get(req.user.id);
     
     if (!user) {
+      console.log(`User info request failed: User not found for ID ${req.user.id}`);
       return res.status(404).json({ error: 'User not found' });
     }
     
-    res.json(user);
+    console.log(`User info retrieved successfully for: ${user.username} (ID: ${user.id})`);
+    return res.status(200).json(user);
   } catch (err) {
     console.error('Error getting user:', err);
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message });
   }
 });
 
 // POST /api/user/register
 // Register a new user
 router.post('/register', async (req, res) => {
+  // Explicitly set content type to ensure JSON response
+  res.setHeader('Content-Type', 'application/json');
+  
   const { username, email, password } = req.body;
   
   console.log(`Registration attempt for user: ${email}`);
+  console.log('Request body:', req.body);
+  
   if (!username || !email || !password) {
+    console.log('Registration failed: Missing required fields');
     return res.status(400).json({ error: 'Username, email and password are required' });
   }
   
@@ -76,21 +94,32 @@ router.post('/register', async (req, res) => {
     const token = jwt.sign({ id: newUser.id, username: newUser.username }, JWT_SECRET, { expiresIn: '7d' });
     
     console.log(`User registered successfully: ${username} (ID: ${newUser.id})`);
-    res.status(201).json({ user: newUser, token });
+    
+    // Create response object
+    const responseData = { user: newUser, token };
+    console.log('Sending registration response:', responseData);
+    
+    // Send JSON response with explicit content type
+    return res.status(201).json(responseData);
   } catch (err) {
     console.error(`Error creating user ${email}:`, err);
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message });
   }
 });
 
 // POST /api/user/login
 // Login a user
 router.post('/login', async (req, res) => {
+  // Explicitly set content type to ensure JSON response
+  res.setHeader('Content-Type', 'application/json');
+  
   const { email, password } = req.body;
   
   console.log(`Login attempt for user: ${email}`);
+  console.log('Login request body:', req.body);
   
   if (!email || !password) {
+    console.log('Login failed: Missing required fields');
     return res.status(400).json({ error: 'Email and password are required' });
   }
   
@@ -122,19 +151,32 @@ router.post('/login', async (req, res) => {
     };
     
     console.log(`User logged in successfully: ${user.username} (ID: ${user.id})`);
-    res.json({ user: userInfo, token });
+    
+    // Create response object
+    const responseData = { user: userInfo, token };
+    console.log('Sending login response:', responseData);
+    
+    // Send JSON response with explicit content type
+    return res.status(200).json(responseData);
   } catch (err) {
     console.error(`Error logging in user ${email}:`, err);
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message });
   }
 });
 
 // POST /api/user
 // Creates a new user or returns existing user (legacy endpoint)
 router.post('/', (req, res) => {
+  // Explicitly set content type to ensure JSON response
+  res.setHeader('Content-Type', 'application/json');
+  
   const { username } = req.body;
   
+  console.log('Legacy user creation attempt for:', username);
+  console.log('Request body:', req.body);
+  
   if (!username) {
+    console.log('Legacy user creation failed: Missing username');
     return res.status(400).json({ error: 'Username is required' });
   }
   
@@ -144,7 +186,8 @@ router.post('/', (req, res) => {
     
     if (existingUser) {
       // User exists, return it
-      return res.json(existingUser);
+      console.log(`Legacy user already exists: ${username} (ID: ${existingUser.id})`);
+      return res.status(200).json(existingUser);
     }
     
     // Create new user
@@ -153,10 +196,12 @@ router.post('/', (req, res) => {
     
     // Return the newly created user
     const newUser = db.prepare('SELECT id, username, email, created_at FROM users WHERE id = ?').get(result.lastInsertRowid);
-    res.status(201).json(newUser);
+    console.log(`Legacy user created successfully: ${username} (ID: ${newUser.id})`);
+    
+    return res.status(201).json(newUser);
   } catch (err) {
-    console.error('Error creating user:', err);
-    res.status(500).json({ error: err.message });
+    console.error('Error creating legacy user:', err);
+    return res.status(500).json({ error: err.message });
   }
 });
 

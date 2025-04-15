@@ -77,6 +77,19 @@ export const userApi = {
     return api.post('/user/register', userData)
       .then(response => {
         console.log('Registration API response:', response);
+        
+        // Validate response format
+        if (typeof response === 'string' || response instanceof String) {
+          console.error('Received string response instead of JSON:', response);
+          throw new Error('Invalid response format: received HTML instead of JSON');
+        }
+        
+        // Ensure we have the expected data structure
+        if (!response || !response.user || !response.token) {
+          console.error('Invalid response structure:', response);
+          throw new Error('Invalid response format from server');
+        }
+        
         return response;
       })
       .catch(error => {
@@ -146,11 +159,19 @@ export const pomodoroApi = {
 api.interceptors.response.use(
   (response) => {
     console.log('API Response:', response.config.url, response.status);
+    
     // Check if the response has data property
     if (response.data === undefined) {
       console.warn('API Response has no data property:', response);
       return response;
     }
+    
+    // Check if the response is HTML instead of JSON
+    if (typeof response.data === 'string' && response.data.includes('<!doctype html>')) {
+      console.error('Received HTML response instead of JSON:', response.config.url);
+      throw new Error('Invalid response format: received HTML instead of JSON');
+    }
+    
     return response.data;
   },
   (error) => {

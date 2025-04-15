@@ -51,6 +51,26 @@ app.use(express.json());
 // Log all requests for debugging
 app.use((req, res, next) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+  
+  // Track original response methods
+  const originalSend = res.send;
+  const originalJson = res.json;
+  
+  // Override res.send to log response data
+  res.send = function(body) {
+    console.log(`Response for ${req.method} ${req.url} - Status: ${res.statusCode}`);
+    if (typeof body === 'string' && body.startsWith('<!DOCTYPE html>')) {
+      console.warn('WARNING: HTML response detected for API request');
+    }
+    return originalSend.apply(res, arguments);
+  };
+  
+  // Override res.json to log response data
+  res.json = function(body) {
+    console.log(`JSON Response for ${req.method} ${req.url} - Status: ${res.statusCode}`);
+    return originalJson.apply(res, arguments);
+  };
+  
   next();
 });
 app.use(express.json());
@@ -94,8 +114,15 @@ app.use('/api/pomodoro', require('./routes/pomodoro'));
 
 // Serve static frontend in production
 if (process.env.NODE_ENV === 'production') {
+  // Make sure API routes are handled before the catch-all route
   app.use(express.static(path.join(__dirname, '../../frontend/build')));
-  app.get('*', (req, res) => {
+  
+  // Only apply the catch-all route to non-API requests
+  app.get('*', (req, res, next) => {
+    // Skip API routes
+    if (req.path.startsWith('/api/') || req.path === '/health') {
+      return next();
+    }
     res.sendFile(path.join(__dirname, '../../frontend/build/index.html'));
   });
 }
@@ -103,6 +130,15 @@ if (process.env.NODE_ENV === 'production') {
 // Error handling
 app.use((err, req, res, next) => {
   console.error(`Server error for ${req.method} ${req.path}:`, err.stack);
+  
+  // Make sure we're sending a JSON response for API requests
+  if (req.path.startsWith('/api/') || req.path === '/health') {
+    // Set content type explicitly to ensure JSON response
+    res.setHeader('Content-Type', 'application/json');
+    return res.status(500).json({ error: err.message });
+  }
+  
+  // For non-API requests, we can send HTML error page if needed
   res.status(500).json({ error: err.message });
 });
 

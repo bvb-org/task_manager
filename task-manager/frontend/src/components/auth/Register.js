@@ -76,13 +76,23 @@ const Register = () => {
       // Handle specific error cases
       if (err.error === 'Username or email already exists') {
         setError('This username or email is already registered. Please use a different one.');
+      } else if (err.error === 'Server configuration error. Please contact support.') {
+        setError('Server configuration error. Our team has been notified. Please try again later.');
+        // You could add code here to notify your team about the issue
+        console.error('CRITICAL: Server returning HTML instead of JSON for registration API');
       } else if (err.error && typeof err.error === 'string') {
         setError(err.error);
+      } else if (err.message && err.message.includes('HTML instead of JSON')) {
+        setError('Server configuration error. Our team has been notified. Please try again later.');
+        console.error('CRITICAL: Server returning HTML instead of JSON for registration API');
       } else if (err.message) {
         setError(err.message);
       } else {
         setError('Failed to register. Please try again.');
       }
+      
+      // Add connection test when registration fails
+      checkConnection();
     } finally {
       setLoading(false);
     }

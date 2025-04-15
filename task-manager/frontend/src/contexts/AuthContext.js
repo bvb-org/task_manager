@@ -65,23 +65,36 @@ export const AuthProvider = ({ children }) => {
         password: '***'
       });
       
-      const response = await userApi.register(userData);
-      
-      console.log('Registration response received in AuthContext:', response);
-      
-      // Check if response has the expected format
-      if (!response || !response.user || !response.token) {
-        console.error('Invalid response format:', response);
-        throw { error: 'Invalid response from server' };
+      try {
+        const response = await userApi.register(userData);
+        
+        console.log('Registration response received in AuthContext:', response);
+        
+        // Check if response has the expected format
+        if (!response || !response.user || !response.token) {
+          console.error('Invalid response format:', response);
+          throw { error: 'Invalid response from server' };
+        }
+        
+        // Store auth data
+        userApi.setAuthToken(response.token);
+        userApi.setUser(response.user);
+        setCurrentUser(response.user);
+        setIsAuthenticated(true);
+        
+        return response;
+      } catch (apiError) {
+        console.error('API error during registration:', apiError);
+        
+        // Handle specific API errors
+        if (apiError.message && apiError.message.includes('HTML instead of JSON')) {
+          console.error('Server returned HTML instead of JSON. This might be a server configuration issue.');
+          throw { error: 'Server configuration error. Please contact support.' };
+        }
+        
+        // Re-throw the error with more context if needed
+        throw apiError;
       }
-      
-      // Store auth data
-      userApi.setAuthToken(response.token);
-      userApi.setUser(response.user);
-      setCurrentUser(response.user);
-      setIsAuthenticated(true);
-      
-      return response;
     } catch (error) {
       console.error('Registration failed in AuthContext:', error);
       throw error;
